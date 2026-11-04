@@ -27,6 +27,10 @@ dependencies = [
     "pydantic-settings>=2.2",
 ]
 
+[project.urls]
+Homepage = "https://github.com/nithin-sai-ega/scarletwatch"
+Issues = "https://github.com/nithin-sai-ega/scarletwatch/issues"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8",

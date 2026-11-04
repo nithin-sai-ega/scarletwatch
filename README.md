@@ -12,7 +12,7 @@ ScarletWatch is a small, self-hosted tool. You tell it which sections (by index 
 
 - **Unofficial.** ScarletWatch is an independent open-source project. It is **not affiliated with, endorsed by, or supported by Rutgers, The State University of New Jersey.**
 - It uses **undocumented public endpoints** of the Schedule of Classes (`classes.rutgers.edu/soc/api/...`). They can change or disappear without notice, and then this tool will stop working until it is updated.
-- You are responsible for how you use it. **Read Rutgers' acceptable-use policy** (search "Rutgers Acceptable Use Policy for Information Technology Resources") and keep to it. See also the [polite-use policy](#polite-use-policy) below.
+- You are responsible for how you use it. **Read Rutgers' acceptable-use policy**, [Policy 70.1.1, Acceptable Use Policy for Information Technology Resources](https://sca.rutgers.edu/sites/default/files/pdf/70-1-1-current.pdf) (the authoritative, current version is in the [Rutgers Policy Library](https://policies.rutgers.edu/)), and keep to it. See also the [polite-use policy](#polite-use-policy) below.
 - No warranty (see [LICENSE](LICENSE)). A notification can be late or missed (network trouble, your phone, Rutgers' data lagging). Don't rely on it as your only plan.
 
 ## Quick start (about 5 minutes)
@@ -22,7 +22,7 @@ You need Python 3.11 or newer. ntfy is the recommended notifier because it needs
 **1. Install**
 
 ```bash
-git clone <this repository's URL>
+git clone https://github.com/nithin-sai-ega/scarletwatch.git
 cd scarletwatch
 pip install .          # or: uv run snipe --help
 ```
@@ -36,7 +36,7 @@ pip install .          # or: uv run snipe --help
    python -c "import secrets; print('rutgers-' + secrets.token_urlsafe(16))"
    ```
 3. In the app, tap **+** and subscribe to that topic.
-4. Copy `.env.example` to `.env` and set `SCARLETWATCH_NTFY_TOPIC=<your topic>`. (You can also paste the topic into the dashboard later.)
+4. Copy `.env.example` to `.env` and set `SCARLETWATCH_NTFY_TOPIC=<your topic>`. (You can also paste the topic into the dashboard later.) Run `snipe` from this folder so it finds `.env` and keeps its data in `./data`.
 5. Check it works:
 
    ```bash
@@ -80,7 +80,7 @@ The dashboard follows your system's light/dark setting and works on a phone.
 - Live status badges (open / closed), how long it has been in that state, last good check and poll health per semester.
 - **Add a section** by index (paste several: `10195, 10201`) or search by course code/title and click **Watch**.
 - **Remove**, or mark **Done** (kept in the list but no longer polled).
-- A **Notifications** box for your ntfy topic or Discord webhook, with a **Send test** button.
+- A **Notifications** box for your ntfy topic or Discord webhook, with a **Send test notification** button.
 - It binds to `127.0.0.1` and has **no login**, so don't expose it to the internet (see below). Email, Telegram and webhook credentials are never entered or stored in the UI; they stay in your environment file.
 
 ## CLI reference
@@ -189,13 +189,13 @@ cp .env.example .env     # edit it
 docker compose up -d
 ```
 
-The compose file stores data in a named volume and publishes the dashboard on `127.0.0.1:8000` only. Add watches with `docker compose exec scarletwatch snipe add 11425 --year 2026 --term fall` or in the dashboard.
+The compose file stores data in a named volume and publishes the dashboard on `127.0.0.1:8000` only. Leave `SCARLETWATCH_HOST` and `SCARLETWATCH_DATA_DIR` commented out in `.env` (as they are in `.env.example`); the image sets them. The image builds from the multi-arch `python:3.12-slim` base, so it should also build on a 64-bit Raspberry Pi. Add watches with `docker compose exec scarletwatch snipe add 11425 --year 2026 --term fall` or in the dashboard.
 
 ### Raspberry Pi or a VPS (systemd)
 
 ```bash
 sudo useradd --system --home /var/lib/scarletwatch scarletwatch
-sudo git clone <this repository's URL> /opt/scarletwatch
+sudo git clone https://github.com/nithin-sai-ega/scarletwatch.git /opt/scarletwatch
 cd /opt/scarletwatch
 sudo python3 -m venv .venv && sudo .venv/bin/pip install .
 sudo cp .env.example /etc/scarletwatch.env && sudo chmod 600 /etc/scarletwatch.env   # edit it
@@ -203,6 +203,8 @@ sudo cp deploy/scarletwatch.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now scarletwatch
 journalctl -u scarletwatch -f
 ```
+
+Data lives in `/var/lib/scarletwatch`; as with Docker, leave `SCARLETWATCH_DATA_DIR` commented out in `/etc/scarletwatch.env`. The unit runs as an unprivileged user in a tight sandbox (`systemd-analyze security scarletwatch` rates it 1.3, "OK"). Raspberry Pi OS (bookworm) ships Python 3.11, which is enough.
 
 To use the dashboard on a remote machine, **don't** open the port to the internet. Use an SSH tunnel (`ssh -L 8000:127.0.0.1:8000 you@server`) or a VPN such as Tailscale. The dashboard has no login: anyone who can reach it can change your watches.
 
@@ -215,6 +217,7 @@ ScarletWatch is built to be a good citizen, and you should keep it that way:
 - The large course catalog (about 1 MB gzipped) is cached on disk and refreshed lazily (at most about once an hour), never per poll.
 - Descriptive `User-Agent` (`course-snipe/<version> (+repo URL)`), no personal info.
 - Exponential backoff on timeouts, HTTP 429 and 5xx, honoring `Retry-After`.
+- Responses are gzip-compressed (about 20 KB per poll). Conditional requests (`If-None-Match`) are not used because the server returned a different ETag on every response in testing, so they could not save anything.
 - Suspicious data (empty list, malformed JSON, a sudden large drop in size) is logged and skipped. It never counts as "everything closed", so a glitch cannot trigger false alarms.
 - One install per person. Don't run it as a shared service for many users.
 
@@ -226,7 +229,7 @@ ScarletWatch is built to be a good citizen, and you should keep it that way:
 4. If a watched index disappears from the course catalog, you get a one-time warning.
 5. Friendly details (title, instructor, times) come from the cached `courses.json`.
 
-Optional: `--repeat N` (or "Repeat every" in the dashboard) re-sends the alert every N minutes while a section stays open. It is off by default.
+Optional: `--repeat N` (or "Re-alert every" in the dashboard) re-sends the alert every N minutes while a section stays open. It is off by default.
 
 ## Development
 
@@ -259,4 +262,4 @@ src/scarletwatch/
 
 MIT, copyright (c) 2026 Nithin Sai Ega. See [LICENSE](LICENSE).
 
-The dashboard bundles [htmx](https://htmx.org) 2.0.4 (`src/scarletwatch/web/static/htmx.min.js`), which is under its own permissive license.
+The dashboard bundles [htmx](https://htmx.org) 2.0.4 (`src/scarletwatch/web/static/htmx.min.js`), licensed under the Zero-Clause BSD license.

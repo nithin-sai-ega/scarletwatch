@@ -78,13 +78,25 @@ def _with_service(settings: Settings, fn: Callable[[Service], Awaitable[T]]) -> 
     return asyncio.run(go())
 
 
-@app.callback()
-def main(
-    version: Annotated[bool, typer.Option("--version", help="Show version and exit.")] = False,
-) -> None:
-    if version:
+def _print_version(value: bool) -> None:
+    if value:
         typer.echo(f"scarletwatch {__version__}")
         raise typer.Exit()
+
+
+@app.callback()
+def main(
+    version: Annotated[
+        bool,
+        typer.Option(
+            "--version",
+            help="Show version and exit.",
+            callback=_print_version,
+            is_eager=True,
+        ),
+    ] = False,
+) -> None:
+    """ScarletWatch: get notified when a closed Rutgers section opens."""
 
 
 @app.command()

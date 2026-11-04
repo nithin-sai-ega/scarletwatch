@@ -177,3 +177,11 @@ def test_store_is_closed_cleanly_between_commands(env):
     _, path = env
     invoke("list")
     Store(path / "scarletwatch.db").close()
+
+
+def test_version_flag():
+    from scarletwatch import __version__
+
+    r = invoke("--version")
+    assert r.exit_code == 0
+    assert __version__ in r.output
