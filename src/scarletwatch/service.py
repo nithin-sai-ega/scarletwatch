@@ -356,8 +356,11 @@ class Service:
     async def run(self) -> None:
         log.info("scheduler started (interval %.0fs)", self.interval)
         while not self._stop.is_set():
-            wait = await self.tick()
+            # Clear *before* ticking so a wake()/stop() that arrives mid-tick is not lost.
             self._wake.clear()
+            wait = await self.tick()
+            if self._stop.is_set():
+                break
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(self._wake.wait(), timeout=wait)
         log.info("scheduler stopped")
