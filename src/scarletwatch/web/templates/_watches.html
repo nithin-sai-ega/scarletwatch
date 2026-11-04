@@ -1,0 +1,68 @@
+{% if flash %}
+  {% if flash.ok %}<p class="flash ok">{{ flash.ok }}</p>{% endif %}
+  {% if flash.error %}<p class="flash err">{{ flash.error }}</p>{% endif %}
+{% endif %}
+
+{% if health %}
+<ul class="health">
+  {% for h in health %}
+  <li class="{{ 'good' if h.healthy else 'bad' }}">
+    <span class="dot"></span>
+    <strong>{{ h.semester.label }}</strong>:
+    {% if h.healthy %}polling OK, last good check {{ h.last_ok }}{% if h.open_count %} ({{ h.open_count }} sections open){% endif %}
+    {% else %}
+      last good check {{ h.last_ok }}{% if h.failures %}; {{ h.failures }} failed poll{{ 's' if h.failures != 1 }} in a row{% endif %}
+      {% if h.error %}<span class="muted">({{ h.error }})</span>{% endif %}
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+{% if not rows %}
+  <p class="muted">Nothing watched yet. Add a section below.</p>
+{% else %}
+<div class="table-scroll">
+<table>
+  <thead>
+    <tr><th>Status</th><th>Section</th><th>Details</th><th>Alerts</th><th></th></tr>
+  </thead>
+  <tbody>
+  {% for r in rows %}
+    {% set w = r.watch %}
+    <tr class="{{ r.badge }}">
+      <td>
+        <span class="badge {{ r.badge }}">{{ {'open': 'OPEN', 'closed': 'closed', 'pending': 'checking', 'done': 'done'}[r.badge] }}</span>
+        {% if r.badge in ('open', 'closed') %}<div class="muted small">for {{ r.since }}</div>{% endif %}
+      </td>
+      <td>
+        {% if r.info %}
+          <strong>{{ r.info.course_title.title() }}</strong><br>
+          <span class="muted">{{ r.info.course_string }} &sect;{{ r.info.number }}</span>
+        {% else %}
+          <strong>Index {{ w.index }}</strong>
+        {% endif %}
+        <div class="small">index <code>{{ w.index }}</code> &middot; {{ w.semester.label }}</div>
+        {% if w.missing_since %}<div class="warn small">&#9888; no longer in the course catalog</div>{% endif %}
+      </td>
+      <td class="small">
+        {% if r.info %}{{ r.info.instructor_text }}<br><span class="muted">{{ r.info.meeting_text }}</span>{% endif %}
+        {% if r.last_open %}<div class="muted">{{ r.last_open }}</div>{% endif %}
+      </td>
+      <td class="small">
+        {{ w.state.notify_count }} sent
+        {% if w.repeat_minutes %}<br><span class="muted">repeat {{ w.repeat_minutes }} min</span>{% endif %}
+        {% if w.state.pending_notify %}<br><span class="warn">delivery pending</span>{% endif %}
+      </td>
+      <td class="actions">
+        {% if r.badge == 'open' %}<a class="button small" href="{{ register_link(w) }}" target="_blank" rel="noopener">Register</a>{% endif %}
+        <button class="ghost small" hx-post="/watches/{{ w.id }}/done" hx-target="#watches" hx-swap="innerHTML">{{ 'Resume' if w.done else 'Done' }}</button>
+        <button class="ghost small danger" hx-post="/watches/{{ w.id }}/remove" hx-target="#watches" hx-swap="innerHTML"
+                hx-confirm="Stop watching index {{ w.index }}?">Remove</button>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}

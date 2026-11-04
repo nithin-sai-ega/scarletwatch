@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ScarletWatch</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/htmx.min.js"></script>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <h1><span class="mark">&#9679;</span> ScarletWatch</h1>
+    <p class="muted">Get pinged the moment a closed Rutgers section opens. It never registers for you.</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="card">
+    <h2>Watched sections</h2>
+    <div id="watches" hx-get="/partials/watches" hx-trigger="load, every 10s" hx-swap="innerHTML">
+      <p class="muted">Loading&hellip;</p>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Add a section</h2>
+    <div id="sem" class="row semester">
+      <label>Year <input type="number" name="year" value="{{ default_year }}" min="2000" max="2100" required></label>
+      <label>Term
+        <select name="term">
+          {% for code, name in terms.items() %}
+          <option value="{{ code }}" {% if code == default_term %}selected{% endif %}>{{ name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Campus
+        <select name="campus">
+          {% for code, name in campuses.items() %}
+          <option value="{{ code }}">{{ name }} ({{ code }})</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+
+    <form class="row" hx-post="/watches" hx-include="#sem" hx-target="#watches" hx-swap="innerHTML"
+          hx-on::after-request="if(event.detail.successful) this.reset()">
+      <label class="grow">Index number(s)
+        <input type="text" name="index" placeholder="10195 or 10195, 10201" inputmode="numeric" required>
+      </label>
+      <label>Repeat every (min)
+        <input type="number" name="repeat_minutes" min="1" placeholder="off" title="Optional: re-notify every N minutes while the section stays open">
+      </label>
+      <button type="submit">Watch</button>
+    </form>
+    <p class="hint">The <strong>index</strong> is the 5-digit registration number (e.g. 10195), not the section number (e.g. 01).</p>
+
+    <h3>&hellip;or search by course code or title</h3>
+    <input type="search" name="q" placeholder="198:112  or  data structures"
+           hx-get="/search" hx-include="#sem" hx-trigger="input changed delay:400ms, search"
+           hx-target="#results" hx-swap="innerHTML" autocomplete="off">
+    <div id="results"></div>
+  </section>
+
+  <section class="card" id="notify">
+    <h2>Notifications</h2>
+    {% set error = None %}{% set results = None %}
+    {% include "_notify.html" %}
+  </section>
+</main>
+
+<footer class="wrap muted small">
+  ScarletWatch {{ version }} &middot; unofficial, not affiliated with Rutgers &middot;
+  polling every ~{{ interval }}s &middot; <a href="/health">/health</a>
+</footer>
+</body>
+</html>

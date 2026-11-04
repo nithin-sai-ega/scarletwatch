@@ -1,0 +1,31 @@
+{% if error %}
+  <p class="flash err">{{ error }}</p>
+{% elif hits is none %}
+  {# empty query: show nothing #}
+{% elif not hits %}
+  <p class="muted">No courses matched &ldquo;{{ query }}&rdquo; in {{ sem.label if sem else 'this semester' }}.</p>
+{% else %}
+  {% for hit in hits %}
+  <div class="course">
+    <h4>{{ hit.title.title() }} <span class="muted">{{ hit.course_string }}{% if hit.credits %} &middot; {{ hit.credits }} cr{% endif %}</span></h4>
+    <ul class="sections">
+      {% for s in hit.sections %}
+      <li>
+        <span class="badge {{ 'open' if s.catalog_open else 'closed' }}">{{ 'open' if s.catalog_open else 'closed' }}</span>
+        <span>&sect;{{ s.number }}</span>
+        <code>{{ s.index }}</code>
+        <span class="small muted">{{ s.instructor_text }} &middot; {{ s.meeting_text }}</span>
+        {% if s.index in watched %}
+          <span class="small muted">watching</span>
+        {% else %}
+          <button class="small" hx-post="/watches" hx-include="#sem" hx-vals='{"index": "{{ s.index }}"}'
+                  hx-target="#watches" hx-swap="innerHTML">Watch</button>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endfor %}
+  {% if total >= 15 %}<p class="muted small">Showing the first 15 courses. Narrow your search to see others.</p>{% endif %}
+  <p class="muted small">Open/closed here comes from the cached catalog (up to an hour old). The watcher itself checks live data.</p>
+{% endif %}

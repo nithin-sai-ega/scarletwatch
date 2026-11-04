@@ -26,6 +26,7 @@ from . import engine
 from .catalog import Catalog, CatalogStore, CatalogUnavailable, SectionInfo
 from .config import MIN_POLL_INTERVAL, Settings
 from .guards import OpenListGuard, SuspiciousData
+from .logging_setup import register_secrets
 from .machine import EventKind, Status
 from .messages import make_test_notification, open_notification
 from .notifiers import DeliveryResult, Notification, Notifier, build_notifiers, dispatch
@@ -98,7 +99,9 @@ class Service:
     # -- notifiers ------------------------------------------------------------------------
 
     def notifiers(self) -> list[Notifier]:
-        return build_notifiers(self.settings, self.store.all_settings(), self.http)
+        overrides = self.store.all_settings()
+        register_secrets([*self.settings.secret_values(), *overrides.values()])
+        return build_notifiers(self.settings, overrides, self.http)
 
     def register_template(self) -> str:
         return self.settings.register_url_template
@@ -242,14 +245,10 @@ class Service:
 
     # -- adding watches ---------------------------------------------------------------------
 
-    async def add_watch(
-        self,
-        semester: Semester,
-        index: str,
-        *,
-        repeat_minutes: int | None = None,
-        force: bool = False,
-    ) -> AddResult:
+    async def _prepare(
+        self, semester: Semester, index: str, repeat_minutes: int | None, force: bool
+    ) -> tuple[str, SectionInfo | None]:
+        """Validate one index (format, then existence in the catalog)."""
         index = index.strip()
         if not _INDEX_RE.match(index):
             raise AddError(
@@ -272,15 +271,59 @@ class Service:
                 raise AddError(
                     f"Could not validate the index: {exc} (use --force to skip)"
                 ) from exc
-        watch, created = self.store.add_watch(semester, index, repeat_minutes)
-        already_open: bool | None = None
-        if created:
-            outcome = await self.poll_semester(semester, only_ids={watch.id})
-            if outcome.ok:
-                watch = self.store.get_watch(watch.id) or watch
-                already_open = watch.state.status == Status.OPEN
+        return index, info
+
+    async def add_many(
+        self,
+        semester: Semester,
+        indexes: list[str],
+        *,
+        repeat_minutes: int | None = None,
+        force: bool = False,
+    ) -> list[tuple[str, AddResult | AddError]]:
+        """Add several watches with a single status check (one request for the semester)."""
+        outcomes: list[tuple[str, AddResult | AddError]] = []
+        created_ids: set[int] = set()
+        for raw in indexes:
+            try:
+                index, info = await self._prepare(semester, raw, repeat_minutes, force)
+            except AddError as exc:
+                outcomes.append((raw, exc))
+                continue
+            watch, created = self.store.add_watch(semester, index, repeat_minutes)
+            if created:
+                created_ids.add(watch.id)
+            outcomes.append((index, AddResult(watch, info, created, None)))
+        if created_ids:
+            outcome = await self.poll_semester(semester, only_ids=created_ids)
             self.wake()
-        return AddResult(watch, info, created, already_open)
+            if outcome.ok:
+                refreshed: list[tuple[str, AddResult | AddError]] = []
+                for index, item in outcomes:
+                    if isinstance(item, AddResult) and item.watch.id in created_ids:
+                        watch = self.store.get_watch(item.watch.id) or item.watch
+                        item = AddResult(
+                            watch, item.info, item.created, watch.state.status == Status.OPEN
+                        )
+                    refreshed.append((index, item))
+                outcomes = refreshed
+        return outcomes
+
+    async def add_watch(
+        self,
+        semester: Semester,
+        index: str,
+        *,
+        repeat_minutes: int | None = None,
+        force: bool = False,
+    ) -> AddResult:
+        """Add one watch; raises AddError if it is invalid."""
+        ((_, item),) = await self.add_many(
+            semester, [index], repeat_minutes=repeat_minutes, force=force
+        )
+        if isinstance(item, AddError):
+            raise item
+        return item
 
     # -- scheduler loop ---------------------------------------------------------------------
 

@@ -249,3 +249,29 @@ async def test_unexpected_exception_in_one_semester_does_not_stop_the_others(
     monkeypatch.setattr(service, "poll_semester", flaky)
     await service.tick()
     assert world.count("/openSections.json") == 1  # spring still polled
+
+
+async def test_add_many_uses_one_request_and_reports_each_status(svc, world):
+    service, _ = svc
+    outcomes = await service.add_many(FALL, [CLOSED_IDX, OPEN_IDX, "01", "77777"])
+    by_index = dict(outcomes)
+    assert by_index[CLOSED_IDX].already_open is False
+    assert by_index[OPEN_IDX].already_open is True
+    assert isinstance(by_index["01"], AddError)
+    assert isinstance(by_index["77777"], AddError)
+    assert world.count("/openSections.json") == 1
+
+
+async def test_run_loop_polls_and_stops_gracefully(svc, world):
+    import asyncio
+
+    service, store = svc
+    store.add_watch(FALL, CLOSED_IDX)
+    task = asyncio.create_task(service.run())
+    for _ in range(100):
+        await asyncio.sleep(0.01)
+        if world.count("/openSections.json"):
+            break
+    assert world.count("/openSections.json") == 1
+    service.stop()
+    await asyncio.wait_for(task, timeout=2)

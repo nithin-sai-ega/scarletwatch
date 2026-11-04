@@ -59,6 +59,7 @@ def make_service(
     monkeypatch: Any,
     *,
     ntfy_topic: str | None = "test-topic",
+    store_path: Path | str = ":memory:",
     **env: str,
 ) -> tuple[Service, Store]:
     if ntfy_topic:
@@ -74,7 +75,7 @@ def make_service(
         return wall["t"] + timedelta(seconds=world.mono - 1000.0)
 
     catalogs = CatalogStore(rutgers, settings.catalog_dir, 3600.0, clock=lambda: now().timestamp())
-    store = Store(":memory:")
+    store = Store(store_path)
     service = Service(
         settings,
         store,
