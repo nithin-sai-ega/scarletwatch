@@ -37,6 +37,7 @@ def apply_poll(
     open_indexes: Collection[str],
     now: datetime,
     catalog: Catalog | None = None,
+    only_ids: Collection[int] | None = None,
 ) -> PollResult:
     """Run the state machine for each active watch and persist the outcome."""
     alerts: list[Alert] = []
@@ -44,6 +45,8 @@ def apply_poll(
     open_set = open_indexes if isinstance(open_indexes, (set, frozenset)) else set(open_indexes)
 
     for watch in store.watches_for(semester):
+        if only_ids is not None and watch.id not in only_ids:
+            continue
         if catalog is not None:
             if not catalog.has(watch.index):
                 if watch.missing_since is None:
