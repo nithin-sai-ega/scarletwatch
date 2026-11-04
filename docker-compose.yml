@@ -1,0 +1,16 @@
+services:
+  scarletwatch:
+    build: .
+    image: scarletwatch:local
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    # Published on localhost only: the dashboard has no login.
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - scarletwatch-data:/data
+
+volumes:
+  scarletwatch-data:

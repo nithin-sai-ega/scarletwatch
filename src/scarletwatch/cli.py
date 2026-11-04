@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import os
 import signal
 import sys
 from collections.abc import Awaitable, Callable
@@ -351,7 +352,11 @@ def run(
         settings.host = host
     if port:
         settings.port = port
-    if settings.host not in {"127.0.0.1", "localhost", "::1"} and not no_web:
+    if (
+        settings.host not in {"127.0.0.1", "localhost", "::1"}
+        and not no_web
+        and not os.environ.get("SCARLETWATCH_SUPPRESS_BIND_WARNING")
+    ):
         typer.secho(
             f"Warning: the dashboard has NO login and is bound to {settings.host}. "
             "Anyone who can reach it can edit your watches. Put it behind a VPN or reverse proxy "

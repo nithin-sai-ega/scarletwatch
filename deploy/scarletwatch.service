@@ -1,0 +1,32 @@
+# Example systemd unit. Install steps are in the README ("Run on a VPS or Raspberry Pi").
+#   sudo cp deploy/scarletwatch.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now scarletwatch
+[Unit]
+Description=ScarletWatch (Rutgers course section watcher)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=scarletwatch
+Group=scarletwatch
+# Secrets and settings live here (chmod 600, owned by root or the service user).
+EnvironmentFile=/etc/scarletwatch.env
+Environment=SCARLETWATCH_DATA_DIR=/var/lib/scarletwatch
+StateDirectory=scarletwatch
+ExecStart=/opt/scarletwatch/.venv/bin/snipe run
+Restart=on-failure
+RestartSec=10
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/scarletwatch
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target
