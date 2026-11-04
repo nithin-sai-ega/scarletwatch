@@ -1,68 +1,95 @@
-{% if flash %}
-  {% if flash.ok %}<p class="flash ok">{{ flash.ok }}</p>{% endif %}
-  {% if flash.error %}<p class="flash err">{{ flash.error }}</p>{% endif %}
-{% endif %}
+{% set open_now = rows | selectattr('badge', 'equalto', 'open') | list | length %}
+{% set watching = rows | rejectattr('badge', 'equalto', 'done') | list | length %}
+{% set sent = rows | sum(attribute='watch.state.notify_count') %}
+{% set all_healthy = health | rejectattr('healthy') | list | length == 0 %}
 
-{% if health %}
-<ul class="health">
-  {% for h in health %}
-  <li class="{{ 'good' if h.healthy else 'bad' }}">
-    <span class="dot"></span>
-    <strong>{{ h.semester.label }}</strong>:
-    {% if h.healthy %}polling OK, last good check {{ h.last_ok }}{% if h.open_count %} ({{ h.open_count }} sections open){% endif %}
-    {% else %}
-      last good check {{ h.last_ok }}{% if h.failures %}; {{ h.failures }} failed poll{{ 's' if h.failures != 1 }} in a row{% endif %}
-      {% if h.error %}<span class="muted">({{ h.error }})</span>{% endif %}
-    {% endif %}
-  </li>
-  {% endfor %}
-</ul>
-{% endif %}
-
-{% if not rows %}
-  <p class="muted">Nothing watched yet. Add a section below.</p>
-{% else %}
-<div class="table-scroll">
-<table>
-  <thead>
-    <tr><th>Status</th><th>Section</th><th>Details</th><th>Alerts</th><th></th></tr>
-  </thead>
-  <tbody>
-  {% for r in rows %}
-    {% set w = r.watch %}
-    <tr class="{{ r.badge }}">
-      <td>
-        <span class="badge {{ r.badge }}">{{ {'open': 'OPEN', 'closed': 'closed', 'pending': 'checking', 'done': 'done'}[r.badge] }}</span>
-        {% if r.badge in ('open', 'closed') %}<div class="muted small">for {{ r.since }}</div>{% endif %}
-      </td>
-      <td>
-        {% if r.info %}
-          <strong>{{ r.info.course_title.title() }}</strong><br>
-          <span class="muted">{{ r.info.course_string }} &sect;{{ r.info.number }}</span>
-        {% else %}
-          <strong>Index {{ w.index }}</strong>
-        {% endif %}
-        <div class="small">index <code>{{ w.index }}</code> &middot; {{ w.semester.label }}</div>
-        {% if w.missing_since %}<div class="warn small">&#9888; no longer in the course catalog</div>{% endif %}
-      </td>
-      <td class="small">
-        {% if r.info %}{{ r.info.instructor_text }}<br><span class="muted">{{ r.info.meeting_text }}</span>{% endif %}
-        {% if r.last_open %}<div class="muted">{{ r.last_open }}</div>{% endif %}
-      </td>
-      <td class="small">
-        {{ w.state.notify_count }} sent
-        {% if w.repeat_minutes %}<br><span class="muted">repeat {{ w.repeat_minutes }} min</span>{% endif %}
-        {% if w.state.pending_notify %}<br><span class="warn">delivery pending</span>{% endif %}
-      </td>
-      <td class="actions">
-        {% if r.badge == 'open' %}<a class="button small" href="{{ register_link(w) }}" target="_blank" rel="noopener">Register</a>{% endif %}
-        <button class="ghost small" hx-post="/watches/{{ w.id }}/done" hx-target="#watches" hx-swap="innerHTML">{{ 'Resume' if w.done else 'Done' }}</button>
-        <button class="ghost small danger" hx-post="/watches/{{ w.id }}/remove" hx-target="#watches" hx-swap="innerHTML"
-                hx-confirm="Stop watching index {{ w.index }}?">Remove</button>
-      </td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
+<div class="stats">
+  <div class="stat">
+    <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg></span>
+    <div><div class="num">{{ watching }}</div><div class="lbl">sections watched</div></div>
+  </div>
+  <div class="stat {{ 'good' if open_now }}">
+    <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></span>
+    <div><div class="num">{{ open_now }}</div><div class="lbl">open right now</div></div>
+  </div>
+  <div class="stat">
+    <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0112 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 003.4 0"/></svg></span>
+    <div><div class="num">{{ sent }}</div><div class="lbl">alerts sent</div></div>
+  </div>
+  <div class="stat {{ 'good' if health and all_healthy else ('bad' if health) }}">
+    <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></span>
+    <div><div class="num">{{ 'Healthy' if (health and all_healthy) else ('Degraded' if health else 'Idle') }}</div><div class="lbl">polling status</div></div>
+  </div>
 </div>
-{% endif %}
+
+<section class="card">
+  <div class="card-head">
+    <h2><span class="h-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg></span>Watched sections</h2>
+    {% if health %}
+    <ul class="health">
+      {% for h in health %}
+      <li class="{{ 'good' if h.healthy else 'bad' }}" title="{{ h.error or '' }}">
+        <span class="dot"></span>
+        <span><strong>{{ h.semester.label }}</strong>
+        {% if h.healthy %}&middot; checked {{ h.last_ok }}{% if h.open_count %} &middot; {{ '{:,}'.format(h.open_count) }} open{% endif %}
+        {% else %}&middot; last good check {{ h.last_ok }}{% if h.failures %} &middot; {{ h.failures }} failed{% endif %}{% endif %}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+
+  {% if flash %}
+    {% if flash.ok %}<p class="flash ok">{{ flash.ok }}</p>{% endif %}
+    {% if flash.error %}<p class="flash err">{{ flash.error }}</p>{% endif %}
+  {% endif %}
+
+  {% if not rows %}
+  <div class="empty">
+    <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="32" cy="32" r="26" opacity=".35"/><circle cx="32" cy="32" r="16" opacity=".6"/><circle cx="32" cy="32" r="4" fill="currentColor"/><path d="M32 32L50 17" stroke-width="3"/></svg>
+    <h3>Nothing watched yet</h3>
+    <p class="muted">Add a section below by index number, or search for a course. You&rsquo;ll be notified the moment it opens.</p>
+  </div>
+  {% else %}
+  <ul class="watch-list">
+    {% for r in rows %}
+    {% set w = r.watch %}
+    <li class="watch {{ r.badge }}">
+      <div class="status">
+        <span class="badge {{ r.badge }}">{{ {'open': 'Open', 'closed': 'Closed', 'pending': 'Checking', 'done': 'Done'}[r.badge] }}</span>
+        {% if r.badge in ('open', 'closed') %}<span class="small muted">for {{ r.since }}</span>{% endif %}
+      </div>
+
+      <div class="w-main">
+        {% if r.info %}
+          <div><span class="w-title">{{ r.info.course_title.title() }}</span><span class="w-code">{{ r.info.course_string }} &sect;{{ r.info.number }}</span></div>
+        {% else %}
+          <div><span class="w-title">Index {{ w.index }}</span></div>
+        {% endif %}
+        <div class="chips">
+          <span class="chip index"># {{ w.index }}</span>
+          <span class="chip">{{ w.semester.label }}</span>
+          {% if r.info %}
+          <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>{{ r.info.instructor_text }}</span>
+          <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>{{ r.info.meeting_text }}</span>
+          {% endif %}
+        </div>
+        {% if r.last_open %}<div class="note muted">{{ r.last_open }}</div>{% endif %}
+        {% if w.missing_since %}<div class="note warn">&#9888; no longer in the course catalog (cancelled or renumbered?)</div>{% endif %}
+        {% if w.state.pending_notify %}<div class="note warn">&#9888; alert delivery pending, will retry</div>{% endif %}
+      </div>
+
+      <div class="w-side">
+        <span class="sent">{{ w.state.notify_count }} alert{{ '' if w.state.notify_count == 1 else 's' }} sent{% if w.repeat_minutes %} &middot; repeat {{ w.repeat_minutes }} min{% endif %}</span>
+        <div class="w-actions">
+          {% if r.badge == 'open' %}<a class="button small" href="{{ register_link(w) }}" target="_blank" rel="noopener">Register &#8599;</a>{% endif %}
+          <button class="ghost small" hx-post="/watches/{{ w.id }}/done" hx-target="#watches" hx-swap="innerHTML">{{ 'Resume' if w.done else 'Done' }}</button>
+          <button class="ghost small danger" hx-post="/watches/{{ w.id }}/remove" hx-target="#watches" hx-swap="innerHTML"
+                  hx-confirm="Stop watching index {{ w.index }}?">Remove</button>
+        </div>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>

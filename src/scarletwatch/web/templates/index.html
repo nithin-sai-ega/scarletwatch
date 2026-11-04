@@ -3,28 +3,48 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>ScarletWatch</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23cc0033'/%3E%3Ccircle cx='32' cy='32' r='11' fill='none' stroke='white' stroke-width='5'/%3E%3Ccircle cx='32' cy='32' r='3.5' fill='white'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/htmx.min.js"></script>
 </head>
 <body>
-<header class="top">
+
+<header class="hero">
   <div class="wrap">
-    <h1><span class="mark">&#9679;</span> ScarletWatch</h1>
-    <p class="muted">Get pinged the moment a closed Rutgers section opens. It never registers for you.</p>
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
+        <rect width="64" height="64" rx="16" fill="#fff" fill-opacity=".16"/>
+        <circle cx="32" cy="32" r="19" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2"/>
+        <circle cx="32" cy="32" r="11" fill="none" stroke="#fff" stroke-width="4.5"/>
+        <circle cx="32" cy="32" r="3.5" fill="#fff"/>
+        <path d="M32 32 L48 20" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+      </svg>
+      <div>
+        <h1>ScarletWatch</h1>
+        <p>Get pinged the moment a closed Rutgers section opens.</p>
+      </div>
+    </div>
+    <div class="pills">
+      <span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>Never registers for you</span>
+      <span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Checks every ~{{ interval }}s</span>
+      <span class="pill">Unofficial &middot; not affiliated with Rutgers</span>
+    </div>
   </div>
 </header>
 
 <main class="wrap">
-  <section class="card">
-    <h2>Watched sections</h2>
-    <div id="watches" hx-get="/partials/watches" hx-trigger="load, every 10s" hx-swap="innerHTML">
-      <p class="muted">Loading&hellip;</p>
-    </div>
-  </section>
+
+  <div id="watches" hx-get="/partials/watches" hx-trigger="load, every 10s" hx-swap="innerHTML">
+    <section class="card"><p class="muted">Loading&hellip;</p></section>
+  </div>
 
   <section class="card">
-    <h2>Add a section</h2>
+    <div class="card-head">
+      <h2><span class="h-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>Add a section</h2>
+    </div>
+
     <div id="sem" class="row semester">
       <label>Year <input type="number" name="year" value="{{ default_year }}" min="2000" max="2100" required></label>
       <label>Term
@@ -43,35 +63,42 @@
       </label>
     </div>
 
-    <form class="row" hx-post="/watches" hx-include="#sem" hx-target="#watches" hx-swap="innerHTML"
-          hx-on::after-request="if(event.detail.successful) this.reset()">
-      <label class="grow">Index number(s)
-        <input type="text" name="index" placeholder="10195 or 10195, 10201" inputmode="numeric" required>
-      </label>
-      <label>Repeat every (min)
-        <input type="number" name="repeat_minutes" min="1" placeholder="off" title="Optional: re-notify every N minutes while the section stays open">
-      </label>
-      <button type="submit">Watch</button>
-    </form>
-    <p class="hint">The <strong>index</strong> is the 5-digit registration number (e.g. 10195), not the section number (e.g. 01).</p>
-
-    <h3>&hellip;or search by course code or title</h3>
-    <input type="search" name="q" placeholder="198:112  or  data structures"
-           hx-get="/search" hx-include="#sem" hx-trigger="input changed delay:400ms, search"
-           hx-target="#results" hx-swap="innerHTML" autocomplete="off">
-    <div id="results"></div>
+    <div class="cols">
+      <div class="col">
+        <h3>By index number</h3>
+        <form class="stack" hx-post="/watches" hx-include="#sem" hx-target="#watches" hx-swap="innerHTML"
+              hx-on::after-request="if(event.detail.successful) this.reset()">
+          <label>Index number(s)
+            <input type="text" name="index" placeholder="10195  or  10195, 10201" inputmode="numeric" required>
+          </label>
+          <label>Re-alert every (minutes, optional)
+            <input type="number" name="repeat_minutes" min="1" placeholder="off">
+          </label>
+          <button type="submit">Start watching</button>
+        </form>
+        <p class="hint">The <strong>index</strong> is the 5-digit registration number (e.g. 10195), not the section number (e.g. 01).</p>
+      </div>
+      <div class="col">
+        <h3>Or search by course</h3>
+        <input type="search" name="q" placeholder="198:112   or   data structures"
+               hx-get="/search" hx-include="#sem" hx-trigger="input changed delay:400ms, search"
+               hx-target="#results" hx-swap="innerHTML" autocomplete="off">
+        <div id="results"><p class="hint">Type a course code or title, then hit <em>Watch</em> next to the section you want.</p></div>
+      </div>
+    </div>
   </section>
 
   <section class="card" id="notify">
-    <h2>Notifications</h2>
+    <div class="card-head">
+      <h2><span class="h-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0112 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 003.4 0"/></svg></span>Notifications</h2>
+    </div>
     {% set error = None %}{% set results = None %}
     {% include "_notify.html" %}
   </section>
 </main>
 
 <footer class="wrap muted small">
-  ScarletWatch {{ version }} &middot; unofficial, not affiliated with Rutgers &middot;
-  polling every ~{{ interval }}s &middot; <a href="/health">/health</a>
+  ScarletWatch {{ version }} &middot; open source (MIT) &middot; unofficial, uses undocumented public Rutgers endpoints &middot; <a href="/health">/health</a>
 </footer>
 </body>
 </html>

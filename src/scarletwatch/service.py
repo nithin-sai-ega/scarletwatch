@@ -17,8 +17,8 @@ import random
 import re
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, field
-from datetime import datetime
+from dataclasses import dataclass, field, replace
+from datetime import datetime, timedelta
 
 import httpx
 
@@ -111,6 +111,29 @@ class Service:
         if not notifiers:
             return []
         return await dispatch(notifiers, make_test_notification())
+
+    async def send_preview(self, semester: Semester, index: str) -> list[DeliveryResult]:
+        """Send a clearly labelled SAMPLE of the real alert for a real section (no state change)."""
+        index = index.strip()
+        if not _INDEX_RE.match(index):
+            raise AddError(f"{index!r} is not a 5-digit index number.")
+        try:
+            info = (await self.catalogs.get(semester)).get(index)
+        except CatalogUnavailable:
+            info = None
+        note = open_notification(
+            semester, index, info, timedelta(seconds=0), self.register_template()
+        )
+        note = replace(
+            note,
+            title=f"SAMPLE (not a real opening) - {note.title}",
+            body="This is a preview of what a real alert looks like. Nothing has opened."
+            + "\n\n"
+            + note.body,
+            kind="sample",
+        )
+        notifiers = self.notifiers()
+        return await dispatch(notifiers, note) if notifiers else []
 
     # -- polling --------------------------------------------------------------------------
 

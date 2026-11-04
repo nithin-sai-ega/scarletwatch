@@ -4,7 +4,7 @@ Get a phone notification the moment a **closed** Rutgers course section **opens*
 
 ScarletWatch is a small, self-hosted tool. You tell it which sections (by index number) you want, it checks the public Schedule of Classes data about once a minute, and it pings you (free, via ntfy, Discord or email) when a section flips from closed to open. You tap the link in the notification, log in to WebReg yourself, and register.
 
-![Dashboard](docs/screenshots/dashboard.png)
+![Dashboard (light theme)](docs/screenshots/dashboard.png)
 
 > **It does not, and will not, register for you.** There is no login to any Rutgers system, no NetID, no password, no CAS or Duo handling, and nothing like that is ever stored. It only reads two public JSON files and tells *you*.
 
@@ -70,7 +70,12 @@ This is the same link format the Schedule of Classes site itself builds for its 
 
 ## The dashboard
 
-![Searching for a course](docs/screenshots/search.png)
+<p>
+  <img src="docs/screenshots/dashboard-dark.png" alt="Dashboard, dark theme" width="62%">
+  <img src="docs/screenshots/dashboard-mobile.png" alt="Dashboard on a phone" width="30%">
+</p>
+
+The dashboard follows your system's light/dark setting and works on a phone.
 
 - Live status badges (open / closed), how long it has been in that state, last good check and poll health per semester.
 - **Add a section** by index (paste several: `10195, 10201`) or search by course code/title and click **Watch**.
@@ -88,7 +93,7 @@ This is the same link format the Schedule of Classes site itself builds for its 
 | `snipe status` | Statuses, how long each has been open/closed, last opening duration, poll health. |
 | `snipe search "198:112" --year 2026 --term fall` | Find index numbers by course code (`198:112`, `01:198:112`, `198`) or title. |
 | `snipe run` | Poll and serve the dashboard. `--no-web` polls only; `--host`, `--port` override the bind address. |
-| `snipe test-notify` | Send a test through every configured notifier. |
+| `snipe test-notify` | Send a test through every configured notifier. `--preview INDEX --semester ...` sends a labelled sample of a real alert. |
 
 Everywhere a semester is needed you can write `--year 2026 --term fall --campus NB`, or `--semester "fall 2026 New Brunswick"`.
 
@@ -152,6 +157,22 @@ Each notifier is independent: if one fails, the others still fire. Secrets are n
 - **Desktop**: only when running on your own computer.
 
 Adding another notifier is one small class implementing `Notifier.send` in `src/scarletwatch/notifiers/`.
+
+## Check that notifications work
+
+**You never give ScarletWatch a phone number.** There is no SMS. Phone alerts come from the free ntfy app (no account, no number), and email, if you want it, is sent through *your own* mail account using an app password that stays in your local `.env` file. Nothing is sent to the project author or any ScarletWatch server; there isn't one.
+
+1. **Basic test.** `snipe test-notify` (or the **Send test notification** button in the dashboard) sends a harmless test through every configured channel and prints one line per channel: `sent`, or `FAILED - <reason>`. A failure in one channel never blocks the others.
+2. **Preview a real alert.** This sends a clearly labelled **SAMPLE** of the actual alert (course, section, instructor, times, Register link) for a real section, without changing any watch:
+
+   ```bash
+   snipe test-notify --preview 11425 --semester "fall 2026 NB"
+   ```
+   Tap the Register link on your phone to confirm it opens WebReg (you log in yourself).
+3. **Email (optional).** Set `SCARLETWATCH_SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD` (a Gmail *app password*, not your real password), `SMTP_FROM` and `SMTP_TO` in `.env`, then run `snipe test-notify`. Check spam the first time.
+4. **Do a live dry run.** Add a section that is currently closed, run `snipe run`, and leave it. The alert fires on its own when someone drops the class. For a quick end-to-end check with no waiting, steps 1 and 2 are the closest thing; they use the exact same delivery code as a real alert.
+
+If nothing arrives: confirm the topic is spelled identically in the app and in `.env`, that the ntfy app is allowed to notify you (and not battery-optimized), and look at the `FAILED` message.
 
 ## Running it all the time
 

@@ -274,12 +274,32 @@ def status() -> None:
 
 
 @app.command("test-notify")
-def test_notify() -> None:
+def test_notify(
+    preview: Annotated[
+        str | None,
+        typer.Option(
+            "--preview",
+            help="Instead of a plain test, send a labelled SAMPLE alert for this index "
+            "(needs --year/--term or --semester). Shows exactly what a real alert looks like.",
+        ),
+    ] = None,
+    year: YearOpt = None,
+    term: TermOpt = None,
+    campus: CampusOpt = "NB",
+    semester: SemesterOpt = None,
+) -> None:
     """Send a test notification through every configured notifier."""
+    sem = _semester(year, term, campus, semester) if preview else None
     settings = _settings()
 
     async def go(service: Service) -> int:
-        results = await service.send_test()
+        if preview and sem:
+            try:
+                results = await service.send_preview(sem, preview)
+            except AddError as exc:
+                raise _fail(str(exc)) from exc
+        else:
+            results = await service.send_test()
         if not results:
             typer.secho(
                 "No notifier configured. Set SCARLETWATCH_NTFY_TOPIC (see README) and retry.",

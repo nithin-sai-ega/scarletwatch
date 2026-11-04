@@ -107,7 +107,7 @@ def test_search_by_code_and_title_with_watch_buttons(env):
     assert "11426" in r.text
     r = client.get("/search", params={**FORM, "q": "zzzzzz"})
     assert "No courses matched" in r.text
-    assert client.get("/search", params={**FORM, "q": ""}).text.strip() == ""
+    assert "Type a course code" in client.get("/search", params={**FORM, "q": ""}).text
 
 
 def test_search_marks_already_watched(env):

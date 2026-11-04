@@ -133,6 +133,19 @@ def test_test_notify(env, world):
     assert "FAILED" in r.output
 
 
+def test_test_notify_preview_sends_labelled_sample(env, world):
+    r = invoke("test-notify", "--preview", "11425", "--semester", "fall 2026 NB")
+    assert r.exit_code == 0, r.output
+    post = world.ntfy_posts()[0]
+    assert post["title"].startswith("SAMPLE (not a real opening)")
+    assert "Data Structures" in post["title"]
+    assert "Nothing has opened" in post["message"]
+    assert "indexList=11425" in post["click"]
+    bad = invoke("test-notify", "--preview", "01", "--semester", "fall 2026 NB")
+    assert bad.exit_code == 1
+    assert "5-digit" in bad.output
+
+
 def test_test_notify_without_config(tmp_path, world, monkeypatch):
     monkeypatch.setenv("SCARLETWATCH_DATA_DIR", str(tmp_path))
     monkeypatch.chdir(tmp_path)
