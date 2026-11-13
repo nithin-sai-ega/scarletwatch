@@ -132,6 +132,7 @@ Set these as environment variables or in a `.env` file in the directory you run 
 |---|---|---|
 | `POLL_INTERVAL` | `60` | Seconds between checks. **Minimum 30**, enforced in code. Small random jitter is added. |
 | `DATA_DIR` | `./data` | SQLite database and catalog cache. |
+| `SQLITE_WAL` | `true` | SQLite write-ahead logging. Set `false` when `DATA_DIR` is on a network share (SMB, Azure Files), where WAL does not work. |
 | `CATALOG_TTL_MINUTES` | `60` | How long the course catalog is cached (minimum 15). |
 | `HOST` / `PORT` | `127.0.0.1` / `8000` | Dashboard bind address. |
 | `REGISTER_URL_TEMPLATE` | WebReg link | Placeholders: `{semester}` `{term}` `{year}` `{campus}` `{index}` `{indexes}`. Empty = WebReg home page. |

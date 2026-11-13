@@ -27,7 +27,7 @@ def configure_logging(settings: Settings) -> None:
 @asynccontextmanager
 async def open_service(settings: Settings | None = None) -> AsyncIterator[Service]:
     settings = settings or load_settings()
-    store = Store(settings.db_path)
+    store = Store(settings.db_path, wal=settings.sqlite_wal)
     http = httpx.AsyncClient(
         headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
         timeout=httpx.Timeout(20.0, connect=10.0),

@@ -99,18 +99,24 @@ class Health:
 
 
 class Store:
-    def __init__(self, path: Path | str) -> None:
+    def __init__(self, path: Path | str, *, wal: bool = True) -> None:
+        """Open (and create) the database.
+
+        ``wal=False`` uses SQLite's classic rollback journal instead of WAL. WAL needs
+        shared memory between processes, which network file systems such as an
+        SMB/Azure Files share do not provide.
+        """
         if str(path) != ":memory:":
             Path(path).parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA foreign_keys = ON")
         self._lock = threading.RLock()
+        with suppress(sqlite3.DatabaseError):
+            self._conn.execute(f"PRAGMA journal_mode = {'WAL' if wal else 'DELETE'}")
         with self._tx() as c:
             c.executescript(_SCHEMA)
             c.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
-        with suppress(sqlite3.DatabaseError):
-            self._conn.execute("PRAGMA journal_mode = WAL")
 
     def close(self) -> None:
         with self._lock:

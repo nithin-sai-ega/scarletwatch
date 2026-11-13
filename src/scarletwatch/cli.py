@@ -195,7 +195,7 @@ def _act(
 ) -> None:
     sem = _resolve_optional_sem(year, term, campus, text)
     settings = _settings()
-    store = Store(settings.db_path)
+    store = Store(settings.db_path, wal=settings.sqlite_wal)
     code = 0
     try:
         for index in indexes:
@@ -224,7 +224,7 @@ def _act(
 def list_watches() -> None:
     """List all watches."""
     settings = _settings()
-    store = Store(settings.db_path)
+    store = Store(settings.db_path, wal=settings.sqlite_wal)
     try:
         watches = store.list_watches()
     finally:
@@ -241,7 +241,7 @@ def list_watches() -> None:
 def status() -> None:
     """Show watches with live-ish status and poll health (from the database)."""
     settings = _settings()
-    store = Store(settings.db_path)
+    store = Store(settings.db_path, wal=settings.sqlite_wal)
     now = utcnow()
     try:
         watches = store.list_watches()

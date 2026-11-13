@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     # logging
     log_level: str = "INFO"
     log_format: Literal["text", "json"] = "text"
+    # SQLite write-ahead logging. Turn off when DATA_DIR is on a network share
+    # (SMB / Azure Files), where WAL's shared-memory file does not work.
+    sqlite_wal: bool = True
 
     @property
     def db_path(self) -> Path:

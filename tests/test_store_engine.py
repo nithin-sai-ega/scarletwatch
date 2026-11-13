@@ -138,3 +138,31 @@ def test_engine_flags_index_missing_from_catalog_once(store, courses_data):
     assert res.newly_missing == []
     assert store.find_watch(SEM, "77777").missing_since == T0
     assert store.find_watch(SEM, "11425").missing_since is None
+
+
+def _journal_mode(store: Store) -> str:
+    return str(store._conn.execute("PRAGMA journal_mode").fetchone()[0]).lower()
+
+
+def test_wal_is_the_default_journal_mode(tmp_path):
+    s = Store(tmp_path / "wal.db")
+    assert _journal_mode(s) == "wal"
+    s.close()
+
+
+def test_wal_can_be_disabled_for_network_shares(tmp_path):
+    path = tmp_path / "share.db"
+    Store(path).close()  # created in WAL mode first, as an existing install would be
+    s = Store(path, wal=False)
+    assert _journal_mode(s) == "delete"
+    s.add_watch(SEM, "11425")
+    assert len(s.list_watches()) == 1
+    s.close()
+    assert not (tmp_path / "share.db-wal").exists()
+
+
+def test_sqlite_wal_setting_from_env(monkeypatch):
+    from scarletwatch.config import Settings
+
+    monkeypatch.setenv("SCARLETWATCH_SQLITE_WAL", "false")
+    assert Settings(_env_file=None).sqlite_wal is False  # type: ignore[call-arg]
