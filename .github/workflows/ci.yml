@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -22,3 +25,30 @@ jobs:
       - run: ruff format --check .
       - run: mypy
       - run: pytest -q
+
+  # Only after all tests pass, and only for pushes to main: build the Docker
+  # image and publish it to GitHub Container Registry (ghcr.io).
+  publish:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Log in to ghcr.io with the workflow's short-lived token
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$REGISTRY_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Build image
+        run: >
+          docker build
+          --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}"
+          -t "$IMAGE:${{ github.sha }}"
+          -t "$IMAGE:latest"
+          .
+      - name: Push image
+        run: docker push --all-tags "$IMAGE"
