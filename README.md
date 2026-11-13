@@ -163,7 +163,7 @@ Adding another notifier is one small class implementing `Notifier.send` in `src/
 
 **You never give ScarletWatch a phone number.** There is no SMS. Phone alerts come from the free ntfy app (no account, no number), and email, if you want it, is sent through *your own* mail account using an app password that stays in your local `.env` file. Nothing is sent to the project author or any ScarletWatch server; there isn't one.
 
-1. **Basic test.** `snipe test-notify` (or the **Send test notification** button in the dashboard) sends a harmless test through every configured channel and prints one line per channel: `sent`, or `FAILED - <reason>`. A failure in one channel never blocks the others.
+1. **Basic test.** `snipe test-notify` (or the **Send test notification** button in the dashboard) sends a test through every configured channel, at the same urgent priority as a real alert (so it also shows whether a real alert would pop up on your phone), and prints one line per channel: `sent`, or `FAILED - <reason>`. A failure in one channel never blocks the others.
 2. **Preview a real alert.** This sends a clearly labelled **SAMPLE** of the actual alert (course, section, instructor, times, Register link) for a real section, without changing any watch:
 
    ```bash

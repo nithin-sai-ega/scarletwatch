@@ -370,7 +370,8 @@ def test_humanize():
     assert humanize(timedelta(minutes=125)) == "2 h 5 min ago"
 
 
-def test_test_notification_is_not_urgent():
+def test_test_notification_matches_real_alert_priority():
     n = make_test_notification()
     assert n.kind == "test"
-    assert not n.urgent
+    assert n.urgent
+    assert "No section has opened" in n.body

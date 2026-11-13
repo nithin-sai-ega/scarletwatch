@@ -104,10 +104,15 @@ def open_notification(
 
 
 def make_test_notification() -> Notification:
+    # Sent at the same (urgent) priority as real alerts, so the test also shows
+    # whether a real alert would pop up on your phone.
     return Notification(
         title="ScarletWatch test notification",
-        body="If you can read this, this notifier works. No section has opened.",
+        body=(
+            "If you can read this, this notifier works. It was sent at the same priority "
+            "as a real alert. No section has opened."
+        ),
         link=None,
-        urgent=False,
+        urgent=True,
         kind="test",
     )
